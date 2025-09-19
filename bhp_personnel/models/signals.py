@@ -40,7 +40,7 @@ def employee_on_post_save(sender, instance, raw, created, **kwargs):
                                                         password=pwd,
                                                         first_name=instance.first_name,
                                                         last_name=instance.last_name,
-                                                        is_staff=True, )
+                                                        is_staff=False, )
 
                 employee_group = Group.objects.get(name='Employee')
                 employee_group.user_set.add(created_user)
@@ -139,7 +139,7 @@ def send_manager_on_employee_activation(user):
          Hi {supervisor_firstname} {supervisor_lastname},
         <br>
         <br>
-        An new account for an employee has been set up.
+        A new account for an employee has been set up.
         <br>
         <br>
         <a href="{site_url}" target="_blank">Visit Site</a>

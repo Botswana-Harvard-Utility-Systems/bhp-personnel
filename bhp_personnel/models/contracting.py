@@ -30,11 +30,10 @@ class Contracting(BaseUuidModel, SiteModelMixin, models.Model):
     skills = models.ManyToManyField(
         Skills,
         verbose_name='Which professional skills does this personnel have? ',
-        max_length=40,
-        null=True)
+        max_length=40, )
 
     def __str__(self):
-        return f'{self.job_description}'
+        return self.job_description
 
     class Meta:
         app_label = 'bhp_personnel'
