@@ -1,6 +1,7 @@
 from .communication_skills_admin import CommunicationSkillsAdmin
 from .consultant_admin import ConsultantAdmin
 from .contract_admin import ContractAdmin, ContractExtensionAdmin
+from .contracting_admin import ContractingAdmin
 from .department_admin import DepartmentAdmin
 from .employee_admin import EmployeeAdmin, SupervisorAdmin
 from .innovation_and_creativity_admin import InnovationAndCreativityAdmin
@@ -19,3 +20,5 @@ from .professional_skills_admin import ProfessionalSkillsAdmin
 from .quality_of_work_admin import QualityOfWorkAdmin
 from .results_focus_admin import ResultsFocusAdmin
 from .strategic_orientation_admin import StrategicOrientationAdmin
+from .renewal_intent_admin import RenewalIntentAdmin
+from .appraisal_admin import AppraisalAdmin

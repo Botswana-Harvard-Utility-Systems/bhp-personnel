@@ -17,6 +17,5 @@ class JobDescriptionKpaAdmin(ModelAdminMixin, admin.ModelAdmin):
                 'key_performance_area',
                 'kpa_tasks',
                 'kpa_performance_indicators',
-                'skills_required',
-                'kpa_grade', ]}
+                'skills_required', ]}
          ),)

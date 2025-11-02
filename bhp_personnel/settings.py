@@ -70,12 +70,35 @@ WSGI_APPLICATION = 'bhp_personnel.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+ACCOUNT_EMAIL_VERIFICATION = "none"
+HOST = 'localhost' 
+DB_USER = 'root'
+DB_PASSWORD = 'ms_admin' 
+DB_NAME = 'utility' 
+PORT = '3306'
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': HOST,  # Or an IP Address that your DB is hosted on
+        'PORT': PORT,
+        "init_command": "SET foreign_key_checks = 0;",
     }
+
 }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators

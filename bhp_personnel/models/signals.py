@@ -1,25 +1,21 @@
-from datetime import datetime, time
 import random
 import string
 
-from dateutil.relativedelta import relativedelta
-from django.conf import settings
 from django.contrib.auth.models import Group, User
-from django.contrib.sites.shortcuts import get_current_site
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.core.mail import EmailMultiAlternatives
+from django.core.exceptions import ValidationError
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django_q.models import Schedule
-from django_q.tasks import schedule
+
 from edc_base.utils import get_utcnow
-from edc_sms.classes import MessageSchedule
+from edc_constants.constants import YES
 
-from . import PerformanceAssessment, KeyPerformanceArea
-
-from bhp_personnel.models import Appraisal, Consultant, Contract, ContractExtension, \
-    Contracting, Employee, PerformanceReview, Pi, Supervisor
+from bhp_personnel.models import (Contract, ContractExtension,
+                                  Contracting, Employee, Pi, Supervisor)
 from .renewal_intent import RenewalIntent
+from ..utils import send_employee_activation, send_manager_on_employee_activation
+from ..utils import get_schedule_obj, schedule_email_notification, schedule_sms_notification
+from ..utils import create_appraisal
 
 
 @receiver(post_save, weak=False, sender=Employee,
@@ -35,12 +31,18 @@ def employee_on_post_save(sender, instance, raw, created, **kwargs):
                     random.SystemRandom().choice(string.ascii_uppercase + string.digits)
                     for _ in range(8))
                 created_user = User.objects.create_user(username=instance.email,
-                                         email=instance.email,
-                                         password=pwd,
-                                         first_name=instance.first_name,
-                                         last_name=instance.last_name,
-                                         is_staff=True,)
-            send_employee_activation(instance)
+                                                        email=instance.email,
+                                                        password=pwd,
+                                                        first_name=instance.first_name,
+                                                        last_name=instance.last_name,
+                                                        is_staff=False, )
+
+                employee_group = Group.objects.get(name='Employee')
+                employee_group.user_set.add(created_user)
+
+                send_employee_activation(created_user)
+                send_manager_on_employee_activation(instance)
+
             try:
                 Supervisor.objects.get(first_name=instance.first_name,
                                        last_name=instance.last_name)
@@ -50,73 +52,6 @@ def employee_on_post_save(sender, instance, raw, created, **kwargs):
                 supervisor_group = Group.objects.get(name='Supervisor')
                 supervisor_group.user_set.add(created_user)
 
-
-def send_employee_activation(user):
-    """
-    Takes each user one by one and sending an email to each
-    """
-    reset_url = f"https://{get_current_site(request=None).domain}/password-reset/"  #
-    # current domain
-    site_url = f"https://{get_current_site(request=None).domain}"  # current domain
-
-    user_email = user.email  # user email
-    frm = settings.DEFAULT_FROM_EMAIL  # from email
-    subject = 'Time Sheet Activation Link'  # subject of the email
-    message = f"""\
-        Hi {user.first_name} {user.last_name},
-        <br>
-        <br>
-        Your account for the BHP Timesheet System has been set up.
-        The url to access the system is <a href="{site_url}" target="_blank">
-        {site_url}</a>.
-         <br>
-         To activate your account, set the password first using the link below. 
-        <br>
-        <br>
-        <a href="{reset_url}" target="_blank">Reset Password</a>
-        <br>
-        <br>
-        Good Day 😃
-        """
-
-    msg = EmailMultiAlternatives(subject, message, frm, (user_email,))
-    msg.content_subtype = 'html'
-    print("Sending to : ", user.email)
-    try:
-        msg.send()
-    except Exception as e:
-        raise
-
-def send_manager_on_employee_activation(user):
-    mask = Employee.objects.get(id=user.id).supervisor_id
-    supervisor_email = Supervisor.objects.get(id=str(mask)).email
-    supervisor_firstname = Supervisor.objects.get(id=str(mask)).first_name
-    supervisor_lastname = Supervisor.objects.get(id=str(mask)).last_name
-
-    site_url = f"https://{get_current_site(request=None).domain}"
-
-    frm = settings.DEFAULT_FROM_EMAIL
-    subject = 'New Employee Contracting'
-    message = f"""\
-         Hi {supervisor_firstname} {supervisor_lastname},
-        <br>
-        <br>
-        An new account for an employee has been set up.
-        <br>
-        <br>
-        <a href="{site_url}" target="_blank">Visit Site</a>
-        <br>
-        <br>
-        Good Day 😃
-        """
-
-    msg = EmailMultiAlternatives(subject, message, frm, (supervisor_email,))
-    msg.content_subtype = 'html'
-    print("Sending to : ", supervisor_email)
-    try:
-        msg.send()
-    except Exception as e:
-        raise
 
 @receiver(post_save, weak=False, sender=Pi,
           dispatch_uid='pi_on_post_save')
@@ -128,8 +63,7 @@ def pi_on_post_save(sender, instance, raw, created, **kwargs):
                                  password=instance.first_name + '@2020',
                                  first_name=instance.first_name,
                                  last_name=instance.last_name,
-                                 is_staff=True,
-                                 )
+                                 is_staff=True, )
 
 
 @receiver(post_save, weak=False, sender=Contract,
@@ -148,32 +82,14 @@ def contract_on_post_save(sender, instance, raw, created, **kwargs):
 def contracting_on_post_save(sender, instance, raw, **kwargs):
     if not raw:
         try:
-            contract_obj = Contract.objects.filter(identifier=instance.identifier).latest(
-                'start_date')
+            contract_obj = Contract.objects.filter(
+                identifier=instance.identifier).latest(
+                    'start_date')
         except Contract.DoesNotExist:
             raise ValidationError(f'Missing contract, create a new contract')
         else:
             instance.contract = contract_obj
             create_appraisal(contract_obj, appraisal_type='mid_year')
-
-
-def update_contracting(instance=None):
-    """
-    Updating contracting details on post contract update
-    """
-    contracting = None
-
-    if instance:
-        try:
-            contracting = Contracting.objects.get(
-                identifier=instance.identifier,
-                contract_id__isnull=True)
-        except Contracting.DoesNotExist:
-            raise ValidationError(f'Contracting for this contract does not exist '
-                                  'please contact the Administrator.')
-        else:
-            contracting.contract = instance
-            contracting.save()
 
 
 @receiver(post_save, weak=False, sender=ContractExtension,
@@ -192,145 +108,13 @@ def contractextension_on_post_save(sender, instance, raw, created, **kwargs):
         schedule_sms_notification(instance, ext=True)
 
 
-def create_key_performance_areas(job_description=None):
+@receiver(post_save, weak=False, sender=RenewalIntent,
+          dispatch_uid='renewal_intent_on_post_save')
+def renewal_intent_on_post_save(sender, instance, raw, created, **kwargs):
     """
-    Create Key Performance Assessment for each KPA on the job description.
+    Reschedule an email and sms reminder for 3months before contract end
+    date after extension.
     """
-    for job_description_kpa in job_description.jobdescriptionkpa_set.all():
-        KeyPerformanceArea.objects.create(
-            emp_identifier=job_description.identifier,
-            contract=job_description.contract,
-            kpa_nd_objective=job_description_kpa.key_performance_area,
-            performance_indicators=job_description_kpa.kpa_performance_indicators,
-            assessment_period_type='mid_year')
-
-        KeyPerformanceArea.objects.create(
-            emp_identifier=job_description.identifier,
-            contract=job_description.contract,
-            kpa_nd_objective=job_description_kpa.key_performance_area,
-            performance_indicators=job_description_kpa.kpa_performance_indicators,
-            assessment_period_type='contract_end')
-
-
-def create_performance_review(contracting=None, appraisal_instance=None):
-    """
-    Creates two appraisals on post save of a contract
-    """
-    PerformanceAssessment.objects.create(contract=instance,
-                                         emp_identifier=instance.identifier,
-                                         review='mid_year')
-    PerformanceAssessment.objects.create(contract=instance,
-                                         emp_identifier=instance.identifier,
-                                         review='contract_end')
-
-    job_description = getattr(contracting, 'job_description', None)
-    if job_description:
-        for job_description_set in job_description.jobdescriptionkpa_set.all():
-            PerformanceReview.objects.update_or_create(
-                appraisal=appraisal_instance,
-                kpa_title=job_description_set.key_performance_area,
-                kpa_description=job_description_set.kpa_tasks
-            )
-
-
-def create_appraisal(instance=None, appraisal_type=''):
-    """
-    Creates appraisal on post save of a contract
-    @param instance: Contract instance
-    @param appraisal_type: type of appraisal
-    """
-    appraisal_instance, _ = Appraisal.objects.get_or_create(
-        contract=instance,
-        emp_identifier=instance.identifier,
-        assessment_type=appraisal_type,
-    )
-    if appraisal_type == 'contract_end' and instance.contracting:
-        create_performance_review(contracting=instance.contracting,
-                                  appraisal_instance=appraisal_instance)
-
-
-def schedule_email_notification(instance=None, ext=False):
-    """
-    Schedule email notification for contract expiration
-    @param contract: instance of the contract
-    """
-    if instance:
-        identifier = instance.contract.identifier if ext else instance.identifier
-        end_date = (instance.end_date).strftime('%Y/%m/%d')
-        user = get_user(identifier=identifier)
-
-        schedule(
-            'contract.tasks.contract_end_email_notification',
-            user.first_name,
-            user.last_name,
-            user.email,
-            user.supervisor.email,
-            end_date,
-            name=f'{user.identifier}{get_utcnow()}',
-            schedule_type='O',
-            next_run=reminder_datetime(instance=instance, ext=ext))
-
-
-def schedule_sms_notification(instance=None, ext=False):
-    """
-    Schedule sms notification for contract expiration
-    @param contract: instance of the contract
-    """
-    user = None
-    if instance:
-        identifier = instance.contract.identifier if ext else instance.identifier
-        user = get_user(identifier=identifier)
-
-    msg = (f'Dear+{user.first_name},+Please+be+aware+that+your+contract+'
-           f'is+ending+on+the+{instance.end_date}.+Please+notify+your+'
-           'supervisor+of+your+renewal+intent+within+the+month.+Have+a+good+'
-           'day+:).')
-
-    MessageSchedule().schedule_message(
-        message_data=msg,
-        recipient_number=user.cell,
-        sms_type='reminder',
-        schedule_datetime=reminder_datetime(instance=instance, ext=ext))
-
-
-def reminder_datetime(instance=None, ext=False):
-    """
-    Returns datetime when the reminder should be scheduled.
-    """
-    if instance:
-        duration = instance.contract.duration if ext else instance.duration
-        reminder_date = None
-        if duration == '6 Months':
-            reminder_date = instance.end_date - relativedelta(months=1)
-        elif duration == '1 Year':
-            reminder_date = instance.end_date - relativedelta(months=2)
-        elif duration == '2 Years':
-            reminder_date = instance.end_date - relativedelta(months=3)
-        return datetime.combine(reminder_date, datetime.strptime('10:00', '%H:%M').time())
-
-
-def get_user(identifier=None):
-    """
-    Contract owner object getter
-    @param identifier: unique identifier for the owner
-    """
-    try:
-        return Employee.objects.get(identifier=identifier)
-    except Employee.DoesNotExist:
-        try:
-            return Pi.objects.get(identifier=identifier)
-        except Pi.DoesNotExist:
-            try:
-                return Consultant.objects.get(identifier=identifier)
-            except Consultant.DoesNotExist:
-                raise ValidationError(
-                    f'Contract owner for identifier {identifier} does not exist.')
-
-
-def get_schedule_obj(identifier=None):
-    try:
-        schedule_obj = Schedule.objects.get(name=f'{identifier}{get_utcnow()}')
-    except ObjectDoesNotExist:
-        return None
-    else:
-        return schedule_obj
+    if not raw and created:
+        if instance.intent == YES:
+            create_appraisal(instance.contract, appraisal_type='contract_end')

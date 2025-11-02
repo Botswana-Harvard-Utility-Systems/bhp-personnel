@@ -7,6 +7,11 @@ from ..models import KeyPerformanceArea
 
 class KeyPerformanceAreaForm(SiteModelFormMixin, forms.ModelForm):
 
+    kpa_score = forms.CharField(
+        label='KPA SCORE (Rating x Weighting)',
+        widget=forms.TextInput(attrs={'readonly': 'readonly'}),
+        required=False)
+
     def clean(self):
         super().clean()
 

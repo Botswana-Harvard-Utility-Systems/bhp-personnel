@@ -18,5 +18,8 @@ class AdminSite(DjangoAdminSite):
         )
         return context
 
+    def has_permission(self, request):
+        return request.user.is_authenticated
+
 
 bhp_personnel_admin = AdminSite(name='bhp_personnel_admin')

@@ -9,6 +9,9 @@ class AppConfig(DjangoAppConfig):
     admin_site_name = 'bhp_personnel_admin'
     identifier_pattern = None
 
+    def ready(self):
+        import bhp_personnel.models.signals
+
 
 class EdcBaseAppConfig(BaseEdcBaseAppConfig):
     project_name = 'Contract Management System'

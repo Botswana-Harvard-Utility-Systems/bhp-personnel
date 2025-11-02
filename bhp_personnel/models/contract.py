@@ -4,23 +4,20 @@ from django.db.models.deletion import PROTECT
 from edc_base.model_mixins import BaseUuidModel
 from edc_base.sites.site_model_mixin import SiteModelMixin
 
-from .job_description import JobDescription
 from ..choices import CONTRACT_STATUS, CONTRACT_LENGTH
+from .employee import Employee
 
 
 class Contract(BaseUuidModel, SiteModelMixin, models.Model):
 
     identifier = models.CharField(
-        verbose_name="Identifier",
+        verbose_name='Identifier',
         max_length=36,
         null=True,
         blank=True)
 
-    job_description = models.OneToOneField(
-        JobDescription, on_delete=models.CASCADE)
-
     duration = models.CharField(
-        verbose_name="Contract Duration",
+        verbose_name='Contract Duration',
         max_length=30,
         choices=CONTRACT_LENGTH)
 
@@ -39,27 +36,26 @@ class Contract(BaseUuidModel, SiteModelMixin, models.Model):
         max_length=30,
         null=True,
         choices=CONTRACT_STATUS,
-        default='active')
-
-    leave_days = models.IntegerField(
-        verbose_name='Number of leave days',
-        default=0)
-
-    leave_balance = models.IntegerField(
-        verbose_name='Number of leave days',
-        default=0)
+        default='Active')
 
     contract_ended = models.BooleanField(
         default=False,
         null=True,
         blank=True)
 
+    @property
+    def employee_code(self):
+        try:
+            employee = Employee.objects.get(identifier=self.identifier)
+        except Employee.DoesNotExist:
+            return None
+        else:
+            return getattr(employee, 'employee_code', None)
+
     def __str__(self):
-        return f'{self.identifier}, {self.start_date} - {self.end_date}'
+        return f'Employee code: {self.employee_code}, Period: {self.start_date} - {self.end_date}'
 
     def save(self, *args, **kwargs):
-        if not self.id:
-            self.leave_balance = self.leave_days
         self.due_date = self.end_date - relativedelta(months=3)
         super().save(*args, **kwargs)
 

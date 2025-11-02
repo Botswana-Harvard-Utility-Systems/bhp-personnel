@@ -9,7 +9,6 @@ from ..choices import PERFORMANCE_RATING, ASSESSMENT_TYPE
 
 
 class KeyPerformanceArea(SiteModelMixin, BaseUuidModel):
-
     emp_identifier = models.CharField(
         verbose_name="Employee Identifier",
         max_length=36,
@@ -24,19 +23,19 @@ class KeyPerformanceArea(SiteModelMixin, BaseUuidModel):
 
     kpa_nd_objective = models.CharField(
         verbose_name='KEY PERFORMANCE AREA and OBJECTIVES',
-        max_length=250,)
+        max_length=250, )
 
     performance_indicators = models.CharField(
         verbose_name='Key PERFORMANCE INDICATORS / MEASURES & DEADLINES '
                      '(completion dates)',
-        max_length=150,)
+        max_length=150, )
 
-    weighting = models.IntegerField(
+    weighting = models.PositiveIntegerField(
         verbose_name='%WEIGHTING (KPA Weighting as % of total)',
-        validators=[MinValueValidator(0),
-                    MaxValueValidator(100)],
-        default=0
-        )
+        validators=[MaxValueValidator(100)],
+        default=0,
+        help_text="0 to 100"
+    )
 
     kpa_rating = models.CharField(
         verbose_name='KPA RATING (Use Rating Scale)',
