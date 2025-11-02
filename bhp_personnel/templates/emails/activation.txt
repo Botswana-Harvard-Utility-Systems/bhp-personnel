@@ -1,0 +1,9 @@
+Hi {{ user.first_name }} {{ user.last_name }},
+
+Your account for the BHP Timesheet System has been set up.
+The url to access the system is {{ site_url }}
+
+To activate your account, set the password first using the link below.
+{{ reset_url }}
+
+ Good Day!

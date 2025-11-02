@@ -155,6 +155,10 @@ class Employee(CommonDetailsMixin, SiteModelMixin, SearchSlugModelMixin,
     def __str__(self):
         return f'{self.first_name}, {self.last_name} {self.employee_code}'
 
+    @property
+    def get_fullname(self):
+        return f'{self.first_name} {self.last_name}'
+
     def save(self, *args, **kwargs):
         if not self.id:
             self.identifier = self.identifier_cls().identifier

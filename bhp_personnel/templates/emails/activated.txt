@@ -1,0 +1,5 @@
+Hi {{ supervisor_firstname }} {{ supervisor_lastname }},
+
+An new account for an employee has been set up. {{ site_url }}
+
+Good Day!

@@ -18,6 +18,7 @@ class FamiliarizationTime(BaseUuidModel, SiteModelMixin, models.Model):
     post_appointment = models.TextField(
         verbose_name='Post Appointment',
         max_length=200)
+
     class Meta:
         verbose_name = 'Familiarization Time'
         verbose_name_plural = 'Familiarization Time'

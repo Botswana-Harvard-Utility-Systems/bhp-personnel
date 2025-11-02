@@ -3,7 +3,7 @@ from datetime import datetime
 
 from django.contrib import admin
 from django.shortcuts import redirect, render
-from django.urls import reverse, path
+from django.urls import path
 from edc_model_admin import StackedInlineMixin, ModelAdminFormAutoNumberMixin
 from edc_model_admin.model_admin_audit_fields_mixin import audit_fieldset_tuple
 
@@ -14,7 +14,7 @@ from .modeladmin_mixins import ModelAdminMixin
 
 
 class LicenceInline(StackedInlineMixin, ModelAdminFormAutoNumberMixin,
-                                  admin.StackedInline):
+                    admin.StackedInline):
     model = Licence
     extra = 0
 
@@ -30,7 +30,6 @@ class LicenceInline(StackedInlineMixin, ModelAdminFormAutoNumberMixin,
         }),
         audit_fieldset_tuple
     )
-
 
 
 @admin.register(Supervisor, site=bhp_personnel_admin)
@@ -112,16 +111,6 @@ class EmployeeAdmin(ModelAdminMixin, admin.ModelAdmin):
             form.base_fields[field].help_text = ""
         return form
 
-    def has_change_permission(self, request, obj=None):
-        if 'HR' in request.user.groups.values_list('name', flat=True):
-            return True
-        return False
-
-    def has_add_permission(self, request):
-        if 'HR' in request.user.groups.values_list('name', flat=True):
-            return True
-        return False
-
     def get_urls(self):
         urls = super().get_urls()
         new_url = [
@@ -131,8 +120,10 @@ class EmployeeAdmin(ModelAdminMixin, admin.ModelAdmin):
 
     def import_employee(self, request, *args, **kwargs):
         if not self.has_add_permission(request):
-            self.message_user(request, "You do not have permission to perform this action."
-                                       " Please contact an administrator for assistance.")
+            self.message_user(
+                request,
+                "You do not have permission to perform this action."
+                " Please contact an administrator for assistance.")
             return redirect('..')
         form = CSVUploadForm(request.POST, request.FILES)
         if form.is_valid():
@@ -152,7 +143,7 @@ class EmployeeAdmin(ModelAdminMixin, admin.ModelAdmin):
                     dept_name=row.get('department_name', '')
                 )
 
-                employee, _ = Employee.objects.update_or_create(
+                _employee, _ = Employee.objects.update_or_create(
                     email=row.get('email', ''),
                     employee_code=row.get('employee_code', ''),
                     cell=row.get('cell', ''),
