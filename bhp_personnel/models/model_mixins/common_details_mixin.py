@@ -27,7 +27,7 @@ class CommonDetailsMixin(models.Model):
         max_length=1)
 
     email = models.EmailField()
-    
+
     hired_date = models.DateField(
         verbose_name='Hired Date')
 
