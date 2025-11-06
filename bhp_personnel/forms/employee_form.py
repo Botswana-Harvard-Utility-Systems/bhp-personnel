@@ -19,18 +19,21 @@ class EmployeeForm(SiteModelFormMixin, forms.ModelForm):
         widget=forms.TextInput(attrs={'readonly': 'readonly'}))
 
     def clean(self):
-        cleaned = super().clean()
-        email = cleaned.get('email')
-        self.validate_unique_email(email)
-        return cleaned
+        cleaned_data = super().clean()
+        email = cleaned_data.get('email')
+        if self.instance._state.adding or ('email' in self.cleaned_data):
+            self.validate_unique_email(email)
+        return cleaned_data
 
     def validate_unique_email(self, email: str):
         if not email:
             return
-        exists = User.objects.filter(email__iexact=email).exists()
-        if exists:
+        qs = self._meta.model.objects.filter(email__iexact=email)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
             raise forms.ValidationError(
-                {'email': 'An account with this email already exists.'})
+                {'email': 'An employee with this email already exists.'})
 
     class Meta:
         model = Employee
